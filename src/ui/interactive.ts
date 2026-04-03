@@ -1,6 +1,6 @@
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
-import { SPECIES, RARITIES, EYES, HATS, STAT_NAMES, RARITY_BASE_STATS } from "../core/constants.ts";
+import { SPECIES, RARITIES, EYES, HATS, STAT_NAMES, RARITY_BASE_STATS, sanitizeText, MAX_NAME_LENGTH, MAX_PERSONALITY_LENGTH } from "../core/constants.ts";
 import type { BuddyBones, Companion, Lang, Species, Rarity, Eye, Hat } from "../core/types.ts";
 import { t } from "../utils/i18n.ts";
 
@@ -101,12 +101,15 @@ export async function interactiveSelectBones(
 export async function interactiveSelectSoul(
   lang: Lang,
 ): Promise<{ name: string; personality: string }> {
-  const name = await askText(t("enter_name", lang), "Buddy");
-  const personality = await askText(
+  const rawName = await askText(t("enter_name", lang), "Buddy");
+  const rawPersonality = await askText(
     t("enter_personality", lang),
     "A friendly companion who loves to help debug code.",
   );
-  return { name, personality };
+  return {
+    name: sanitizeText(rawName, MAX_NAME_LENGTH),
+    personality: sanitizeText(rawPersonality, MAX_PERSONALITY_LENGTH),
+  };
 }
 
 export async function interactiveConfirm(lang: Lang): Promise<boolean> {

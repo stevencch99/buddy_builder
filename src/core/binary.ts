@@ -1,11 +1,10 @@
 import { $ } from "bun";
-import { readFile, writeFile, copyFile } from "node:fs/promises";
+import { readFile, writeFile, copyFile, unlink } from "node:fs/promises";
 import type { PatchResult } from "./types.ts";
 
 const SALT = "friend-2026-401";
-
 function timestamp(): string {
-  return new Date().toISOString().replace(/[:.]/g, "").slice(0, 15);
+  return new Date().toISOString().replace(/[:.]/g, "").slice(0, 18);
 }
 
 export async function backupBinary(binaryPath: string): Promise<string> {
@@ -30,6 +29,15 @@ export async function listBackups(binaryPath: string): Promise<string[]> {
     .split("\n")
     .filter((f) => f.startsWith(`${basename}.bak.`))
     .map((f) => `${dir}/${f}`);
+}
+
+/** Remove newer backups, keeping only the oldest `keep` (the original). */
+export async function pruneBinaryBackups(binaryPath: string, keep: number = 1): Promise<void> {
+  const all = await listBackups(binaryPath); // sorted newest-first
+  const toRemove = all.slice(0, Math.max(0, all.length - keep));
+  for (const old of toRemove) {
+    await unlink(old).catch(() => {});
+  }
 }
 
 export interface DetectedPattern {

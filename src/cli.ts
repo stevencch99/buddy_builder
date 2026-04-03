@@ -4,6 +4,7 @@ import { parseArgs } from "node:util";
 import type { Lang } from "./core/types.ts";
 import { bonesPatch } from "./commands/bones-patch.ts";
 import { restore } from "./commands/restore.ts";
+import { prune } from "./commands/prune.ts";
 import { t } from "./utils/i18n.ts";
 
 function printHelp(): void {
@@ -15,6 +16,7 @@ Usage: buddy-builder <command> [options]
 Commands:
   bones       Apply Bones Patch (customize all buddy attributes)
   restore     Restore Claude binary and/or JSON from backup
+  prune       Remove old backups (interactive, keeps latest N)
 
 bones options:
   --species <name>        Species (duck, cat, dragon, etc.)
@@ -32,6 +34,9 @@ Global options:
   --lang <code>           Output language: en (default), zh-TW
   --claude-path <path>    Override Claude binary path
   --help, -h              Show this help
+
+prune options:
+  --keep <n>              Number of oldest backups to keep (default: 1)
 `);
 }
 
@@ -62,6 +67,8 @@ async function main(): Promise<void> {
       name: { type: "string" },
       personality: { type: "string" },
       "skip-patch": { type: "boolean", default: false },
+      // prune-specific
+      keep: { type: "string" },
     },
     strict: false,
   });
@@ -101,6 +108,12 @@ async function main(): Promise<void> {
 
     case "restore": {
       await restore({ lang, claudePath });
+      break;
+    }
+
+    case "prune": {
+      const keep = values.keep ? parseInt(values.keep as string, 10) : undefined;
+      await prune({ lang, claudePath, keep });
       break;
     }
 

@@ -1,5 +1,5 @@
 import type { Companion, Lang, BuddyBones } from "../core/types.ts";
-import { SPECIES, RARITIES, EYES, HATS } from "../core/constants.ts";
+import { SPECIES, RARITIES, EYES, HATS, sanitizeText, MAX_NAME_LENGTH, MAX_PERSONALITY_LENGTH } from "../core/constants.ts";
 import {
   detectSpreadPatterns,
   isAlreadyPatched,
@@ -8,12 +8,14 @@ import {
   restoreBinary,
   verifySaltExists,
   findCandidatePatterns,
+  pruneBinaryBackups,
   type DetectedPattern,
 } from "../core/binary.ts";
 import {
   backupClaudeJson,
   setCompanion,
   restoreClaudeJson,
+  pruneClaudeJsonBackups,
 } from "../core/claude-json.ts";
 import {
   findClaudeBinary,
@@ -222,10 +224,11 @@ async function _bonesPatchInner(options: BonesPatchOptions): Promise<void> {
       stats: { DEBUGGING: 50, PATIENCE: 50, CHAOS: 50, WISDOM: 50, SNARK: 50 },
     };
     soul = {
-      name: options.name ?? "Buddy",
-      personality:
-        options.personality ??
-        "A friendly companion who loves to help debug code.",
+      name: sanitizeText(options.name ?? "Buddy", MAX_NAME_LENGTH),
+      personality: sanitizeText(
+        options.personality ?? "A friendly companion who loves to help debug code.",
+        MAX_PERSONALITY_LENGTH,
+      ),
     };
   } else {
     // Interactive mode
@@ -271,6 +274,10 @@ async function _bonesPatchInner(options: BonesPatchOptions): Promise<void> {
       await restoreClaudeJson(jsonBackupPath);
       process.exit(1);
     }
+
+    // Keep only the original (oldest) backup
+    await pruneBinaryBackups(binaryPath).catch(() => {});
+    await pruneClaudeJsonBackups().catch(() => {});
   } else {
     console.log(`\n  [DRY RUN] Would write to ~/.claude.json:`);
     console.log(JSON.stringify(companion, null, 2));

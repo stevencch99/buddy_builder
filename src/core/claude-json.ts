@@ -1,12 +1,12 @@
-import { readFile, writeFile, rename, copyFile } from "node:fs/promises";
+import { readFile, writeFile, rename, copyFile, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { homedir, tmpdir } from "node:os";
+import { randomUUID } from "node:crypto";
 import type { Companion } from "./types.ts";
 
 const CLAUDE_JSON_PATH = join(homedir(), ".claude.json");
-
 function timestamp(): string {
-  return new Date().toISOString().replace(/[:.]/g, "").slice(0, 15);
+  return new Date().toISOString().replace(/[:.]/g, "").slice(0, 18);
 }
 
 export async function readClaudeJson(): Promise<Record<string, unknown>> {
@@ -55,13 +55,15 @@ export async function setCompanion(companion: Companion): Promise<void> {
   const config = await readClaudeJson();
   config.companion = companion;
 
-  const tmpPath = join(tmpdir(), `.claude-json-${Date.now()}.tmp`);
+  const tmpPath = join(tmpdir(), `.claude-json-${randomUUID()}.tmp`);
   const json = JSON.stringify(config, null, 2) + "\n";
   await writeFile(tmpPath, json, "utf-8");
   await rename(tmpPath, CLAUDE_JSON_PATH);
 }
 
 export async function restoreClaudeJson(backupPath: string): Promise<void> {
+  const content = await readFile(backupPath, "utf-8");
+  JSON.parse(content); // Throws if invalid — reject corrupted backups
   await copyFile(backupPath, CLAUDE_JSON_PATH);
 }
 
@@ -73,4 +75,13 @@ export async function listClaudeJsonBackups(): Promise<string[]> {
     .sort()
     .reverse()
     .map((f) => join(dir, f));
+}
+
+/** Remove newer backups, keeping only the oldest `keep` (the original). */
+export async function pruneClaudeJsonBackups(keep: number = 1): Promise<void> {
+  const all = await listClaudeJsonBackups(); // sorted newest-first
+  const toRemove = all.slice(0, Math.max(0, all.length - keep));
+  for (const old of toRemove) {
+    await unlink(old).catch(() => {});
+  }
 }

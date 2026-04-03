@@ -1,3 +1,4 @@
+import { stat } from "node:fs/promises";
 import type { Lang } from "../core/types.ts";
 import { listBackups, restoreBinary } from "../core/binary.ts";
 import { listClaudeJsonBackups, restoreClaudeJson } from "../core/claude-json.ts";
@@ -8,6 +9,25 @@ import {
 } from "../utils/platform.ts";
 import { interactiveSelectFromList, closeReadline } from "../ui/interactive.ts";
 import { t } from "../utils/i18n.ts";
+
+function formatSize(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${bytes} B`;
+}
+
+async function labelWithSize(paths: string[]): Promise<string[]> {
+  return Promise.all(
+    paths.map(async (p) => {
+      try {
+        const s = await stat(p);
+        return `${p}  (${formatSize(s.size)})`;
+      } catch {
+        return p;
+      }
+    }),
+  );
+}
 
 export interface RestoreOptions {
   lang: Lang;
@@ -38,10 +58,11 @@ export async function restore(options: RestoreOptions): Promise<void> {
 
   // Restore binary
   if (binaryBackups.length > 0) {
+    const labels = await labelWithSize(binaryBackups);
     console.log(`\n📦 Binary backups found: ${binaryBackups.length}`);
     const idx = await interactiveSelectFromList(
       t("select_backup", lang),
-      binaryBackups,
+      labels,
     );
 
     try {
@@ -59,10 +80,11 @@ export async function restore(options: RestoreOptions): Promise<void> {
 
   // Restore JSON
   if (jsonBackups.length > 0) {
+    const labels = await labelWithSize(jsonBackups);
     console.log(`\n📦 JSON backups found: ${jsonBackups.length}`);
     const idx = await interactiveSelectFromList(
       t("select_backup", lang),
-      jsonBackups,
+      labels,
     );
 
     try {

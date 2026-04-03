@@ -93,11 +93,11 @@ Each stat ranges from **1–100**:
 
 ### Other Attributes
 
-| Attribute   | Values                               |
-| ----------- | ------------------------------------ |
-| Shiny       | `true` / `false` (✨ sparkle effect) |
-| Name        | Any string                           |
-| Personality | Any string (shown on buddy card)     |
+| Attribute   | Values                                    |
+| ----------- | ----------------------------------------- |
+| Shiny       | `true` / `false` (✨ sparkle effect)      |
+| Name        | Any string (max 50 chars)                 |
+| Personality | Any string (max 200 chars, on buddy card) |
 
 ## How It Works
 
@@ -224,6 +224,18 @@ bun run src/cli.ts restore
 
 List all backups and interactively choose which to restore.
 
+### Prune backups
+
+```bash
+# Keep only the original backup (default)
+bun run src/cli.ts prune
+
+# Keep the 2 oldest backups
+bun run src/cli.ts prune --keep 2
+```
+
+Shows backup count and disk usage, then asks for confirmation before deleting.
+
 ## CLI Reference
 
 ```
@@ -232,6 +244,7 @@ Usage: buddy-builder <command> [options]
 Commands:
   bones       Apply Bones Patch (customize all buddy attributes)
   restore     Restore Claude binary and/or JSON from backup
+  prune       Remove old backups (keeps oldest N, default 1)
 
 bones options:
   --species <name>        Species (see list above)
@@ -249,6 +262,9 @@ Global options:
   --lang <code>           Output language: en (default), zh-TW
   --claude-path <path>    Override Claude binary path
   --help, -h              Show help
+
+prune options:
+  --keep <n>              Number of oldest backups to keep (default: 1)
 ```
 
 ## Backup System
@@ -260,21 +276,25 @@ Every `bones` execution creates timestamped backups:
 | Claude binary  | `<binary>.bak.<timestamp>`                | `2.1.91.bak.20260403T150000`                |
 | ~/.claude.json | `~/.claude.json.buddy-backup.<timestamp>` | `.claude.json.buddy-backup.20260403T150000` |
 
-- Never overwrites old backups — each run creates a new file
-- Any step failure triggers automatic rollback to the latest backup
-- `restore` command can recover from any historical backup
+- Each run creates a new backup for rollback safety during that operation
+- After success, auto-prunes to keep only the original (oldest) backup
+- Any step failure triggers automatic rollback
+- `restore` command recovers from the original backup
+- `prune` command for manual cleanup (shows sizes, asks confirmation)
 
 ## Safety
 
-| Layer              | Mechanism                                          |
-| ------------------ | -------------------------------------------------- |
-| Pre-flight         | Verify salt string exists (version compatibility)  |
-| Pattern uniqueness | Spread pattern must appear exactly once in binary  |
-| Timestamped backup | Auto-created before modification, never overwrites |
-| Atomic write       | JSON via temp file + rename                        |
-| Auto-rollback      | Any step failure restores from backup              |
-| Post-verify        | `claude --version` and `codesign -v` after patch   |
-| Dry-run            | `--dry-run` simulates entire flow without changes  |
+| Layer              | Mechanism                                                     |
+| ------------------ | ------------------------------------------------------------- |
+| Pre-flight         | Verify salt string exists (version compatibility)             |
+| Pattern uniqueness | Spread pattern must appear exactly once in binary             |
+| Timestamped backup | Auto-created before modification, keeps original after prune  |
+| Atomic write       | JSON via temp file (random UUID) + rename                     |
+| Auto-rollback      | Any step failure restores from backup                         |
+| Post-verify        | `claude --version` and `codesign -v` after patch              |
+| Input sanitization | Name/personality: length limits, control character stripping  |
+| Backup validation  | JSON backups are parsed before restore to reject corruption   |
+| Dry-run            | `--dry-run` simulates entire flow without changes             |
 
 ## Testing
 
@@ -290,6 +310,7 @@ src/
   commands/
     bones-patch.ts           # Bones Patch orchestration
     restore.ts               # Backup restoration
+    prune.ts                 # Backup cleanup
   core/
     types.ts                 # TypeScript types
     constants.ts             # Species / rarity / eyes / hats / stats constants
@@ -413,11 +434,11 @@ bun run src/cli.ts bones
 
 ### 其他屬性
 
-| 屬性               | 值                              |
-| ------------------ | ------------------------------- |
-| 閃光 (Shiny)       | `true` / `false`（✨ 閃光效果） |
-| 名字 (Name)        | 任意字串                        |
-| 個性 (Personality) | 任意字串（顯示在 buddy 卡片上） |
+| 屬性               | 值                                       |
+| ------------------ | ---------------------------------------- |
+| 閃光 (Shiny)       | `true` / `false`（✨ 閃光效果）          |
+| 名字 (Name)        | 任意字串（上限 50 字元）                 |
+| 個性 (Personality) | 任意字串（上限 200 字元，顯示在卡片上）  |
 
 ## 運作原理
 
@@ -544,6 +565,18 @@ bun run src/cli.ts restore
 
 列出所有備份，互動式選擇要還原的版本。
 
+### 清理備份
+
+```bash
+# 只保留最早的原始備份（預設）
+bun run src/cli.ts prune
+
+# 保留最早的 2 份備份
+bun run src/cli.ts prune --keep 2
+```
+
+顯示備份數量和磁碟用量，確認後才刪除。
+
 ## 備份機制
 
 每次執行 `bones` 命令都會建立帶時間戳的備份：
@@ -553,21 +586,25 @@ bun run src/cli.ts restore
 | Claude binary  | `<binary>.bak.<timestamp>`                | `2.1.91.bak.20260403T150000`                |
 | ~/.claude.json | `~/.claude.json.buddy-backup.<timestamp>` | `.claude.json.buddy-backup.20260403T150000` |
 
-- 不會覆蓋舊備份，每次都是新檔案
-- 任何步驟失敗自動回滾到最新備份
-- `restore` 命令可從任意歷史備份還原
+- 每次執行都會建立新備份（確保當次操作可回滾）
+- 成功後自動清理，只保留最早的原始備份
+- 任何步驟失敗自動回滾
+- `restore` 命令從原始備份還原
+- `prune` 命令手動清理（顯示大小，確認後刪除）
 
 ## 安全措施
 
-| 保護層         | 機制                                             |
-| -------------- | ------------------------------------------------ |
-| Pre-flight     | 驗證 salt 字串存在（版本相容性）                 |
-| Pattern 唯一性 | Spread pattern 必須在 binary 中恰好出現 1 次     |
-| 時間戳備份     | 修改前自動建立，不覆蓋歷史                       |
-| Atomic write   | JSON 透過 temp + rename 寫入                     |
-| 自動回滾       | 任何步驟失敗自動還原                             |
-| Post-verify    | Patch 後執行 `claude --version` 和 `codesign -v` |
-| Dry-run        | `--dry-run` 全程模擬，不修改檔案                 |
+| 保護層         | 機制                                                     |
+| -------------- | -------------------------------------------------------- |
+| Pre-flight     | 驗證 salt 字串存在（版本相容性）                         |
+| Pattern 唯一性 | Spread pattern 必須在 binary 中恰好出現 1 次             |
+| 時間戳備份     | 修改前自動建立，成功後只保留原始備份                     |
+| Atomic write   | JSON 透過 temp（隨機 UUID）+ rename 寫入                 |
+| 自動回滾       | 任何步驟失敗自動還原                                     |
+| Post-verify    | Patch 後執行 `claude --version` 和 `codesign -v`         |
+| 輸入清理       | Name/Personality 長度限制，過濾控制字元                  |
+| 備份驗證       | 還原前解析 JSON，拒絕損壞的備份                          |
+| Dry-run        | `--dry-run` 全程模擬，不修改檔案                         |
 
 ## 測試
 

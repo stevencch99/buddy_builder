@@ -59,3 +59,11 @@ export const STAT_NAMES = [
 ] as const;
 
 export const ORIGINAL_SALT = "friend-2026-401";
+
+export const MAX_NAME_LENGTH = 50;
+export const MAX_PERSONALITY_LENGTH = 200;
+
+/** Strip control characters (U+0000–U+001F, U+007F) except tab, newline, carriage return. */
+export function sanitizeText(text: string, maxLength: number): string {
+  return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "").slice(0, maxLength);
+}
