@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Bun
+bun.lock
+
+# Build output
+dist/
+out/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Environment
+.env
+.env.*
+
+# Development
+tmp/
