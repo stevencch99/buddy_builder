@@ -175,8 +175,8 @@ const messages: Record<string, { en: string; "zh-TW": string }> = {
 
   // Done
   "done": {
-    en: "Done! Launch Claude Code and type /buddy to see your customized companion.",
-    "zh-TW": "完成！啟動 Claude Code 並輸入 /buddy 查看你的自定義夥伴。",
+    en: "Done! Launch Claude Code and type /buddy to meet your new companion.",
+    "zh-TW": "完成！啟動 Claude Code 並輸入 /buddy 來見你領養的新夥伴。",
   },
   "aborted": {
     en: "Aborted.",

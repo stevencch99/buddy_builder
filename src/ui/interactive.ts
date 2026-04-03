@@ -66,6 +66,7 @@ export async function interactiveSelectBones(
 ): Promise<BuddyBones> {
   const species = await choose<Species>(t("select_species", lang), SPECIES, 4);
   const rarity = await choose<Rarity>(t("select_rarity", lang), RARITIES, 5);
+  const shiny = await askYesNo(t("select_shiny", lang));
   const eye = await choose<Eye>(t("select_eye", lang), EYES, 6);
 
   let hat: Hat = "none";
@@ -74,8 +75,6 @@ export async function interactiveSelectBones(
   } else {
     console.log(`\n  Hat: none (common rarity)`);
   }
-
-  const shiny = await askYesNo(t("select_shiny", lang));
 
   // Stats
   const base = RARITY_BASE_STATS[rarity];

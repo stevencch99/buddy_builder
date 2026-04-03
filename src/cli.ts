@@ -14,11 +14,11 @@ Buddy Builder - Claude Code Companion Customizer
 Usage: buddy-builder <command> [options]
 
 Commands:
-  bones       Apply Bones Patch (customize all buddy attributes)
+  adopt       Adopt a new buddy (customize all attributes)
   restore     Restore Claude binary and/or JSON from backup
   prune       Remove old backups (interactive, keeps latest N)
 
-bones options:
+adopt options:
   --species <name>        Species (duck, cat, dragon, etc.)
   --rarity <name>         Rarity (common, uncommon, rare, epic, legendary)
   --eye <char>            Eye style (^, o, O, -, @, *)
@@ -85,6 +85,7 @@ async function main(): Promise<void> {
   console.log(`\n🐾 ${t("welcome", lang)}\n`);
 
   switch (command) {
+    case "adopt":
     case "bones": {
       let shiny: boolean | undefined;
       if (values.shiny) shiny = true;
