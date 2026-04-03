@@ -6,6 +6,7 @@ import {
   backupBinary,
   restoreBinary,
   listBackups,
+  pruneBinaryBackups,
   detectSpreadPattern,
   detectSpreadPatterns,
   detectSpreadPatternsFromContent,
@@ -13,6 +14,7 @@ import {
   isAlreadyPatchedFromContent,
   findCandidatePatterns,
   patchSpreadOrder,
+  patchAllSpreadOrders,
   verifySaltExists,
 } from "../../src/core/binary.ts";
 
@@ -382,5 +384,129 @@ describe("listBackups", () => {
     await writeBinary("content");
     const backups = await listBackups(binaryPath);
     expect(backups).toEqual([]);
+  });
+
+  test("returns newest first (sorted by timestamp in filename)", async () => {
+    await writeBinary("content");
+    const b1 = await backupBinary(binaryPath);
+    // Force a different timestamp
+    const b2Path = `${binaryPath}.bak.29991231T235959999`;
+    await writeFile(b2Path, "future", "latin1");
+
+    const backups = await listBackups(binaryPath);
+    expect(backups[0]).toBe(b2Path); // future timestamp first
+    expect(backups).toContain(b1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// pruneBinaryBackups
+// ---------------------------------------------------------------------------
+describe("pruneBinaryBackups", () => {
+  test("keeps only the oldest backup by default", async () => {
+    await writeBinary("content");
+    const b1 = await backupBinary(binaryPath);
+    const b2Path = `${binaryPath}.bak.29991231T235959999`;
+    await writeFile(b2Path, "newer", "latin1");
+
+    await pruneBinaryBackups(binaryPath);
+
+    const remaining = await listBackups(binaryPath);
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0]).toBe(b1); // oldest kept
+  });
+
+  test("keeps N oldest when keep > 1", async () => {
+    await writeBinary("content");
+    const b1 = await backupBinary(binaryPath);
+    const b2Path = `${binaryPath}.bak.29991231T235959998`;
+    const b3Path = `${binaryPath}.bak.29991231T235959999`;
+    await writeFile(b2Path, "mid", "latin1");
+    await writeFile(b3Path, "newest", "latin1");
+
+    await pruneBinaryBackups(binaryPath, 2);
+
+    const remaining = await listBackups(binaryPath);
+    expect(remaining).toHaveLength(2);
+    // Oldest two should remain
+    expect(remaining).toContain(b1);
+    expect(remaining).toContain(b2Path);
+  });
+
+  test("does nothing when fewer backups than keep", async () => {
+    await writeBinary("content");
+    await backupBinary(binaryPath);
+
+    await pruneBinaryBackups(binaryPath, 5);
+    const remaining = await listBackups(binaryPath);
+    expect(remaining).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// patchAllSpreadOrders
+// ---------------------------------------------------------------------------
+describe("patchAllSpreadOrders", () => {
+  test("patches multiple patterns in a single write", async () => {
+    const padding = "x".repeat(100);
+    await writeBinary(`{...H,..._}${padding}{...A,...B}`);
+    const offset1 = 0;
+    const offset2 = "{...H,..._}".length + padding.length;
+
+    const result = await patchAllSpreadOrders(binaryPath, [
+      { pattern: "{...H,..._}", reversed: "{..._,...H}", offset: offset1 },
+      { pattern: "{...A,...B}", reversed: "{...B,...A}", offset: offset2 },
+    ]);
+
+    expect(result.success).toBe(true);
+    expect(result.matchCount).toBe(2);
+
+    const content = await readFile(binaryPath, "latin1");
+    expect(content).toBe(`{..._,...H}${padding}{...B,...A}`);
+  });
+
+  test("fails if any pattern not found at offset", async () => {
+    await writeBinary("{...H,..._} middle {...A,...B}");
+    const result = await patchAllSpreadOrders(binaryPath, [
+      { pattern: "{...H,..._}", reversed: "{..._,...H}", offset: 0 },
+      { pattern: "{...X,...Y}", reversed: "{...Y,...X}", offset: 19 },
+    ]);
+
+    expect(result.success).toBe(false);
+  });
+
+  test("fails if pattern and reversed have different lengths", async () => {
+    await writeBinary("{...H,..._}");
+    const result = await patchAllSpreadOrders(binaryPath, [
+      { pattern: "{...H,..._}", reversed: "{...bones,...H}", offset: 0 },
+    ]);
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("same length");
+  });
+
+  test("handles empty patches array", async () => {
+    await writeBinary("unchanged");
+    const result = await patchAllSpreadOrders(binaryPath, []);
+    expect(result.success).toBe(true);
+    expect(result.matchCount).toBe(0);
+
+    const content = await readFile(binaryPath, "latin1");
+    expect(content).toBe("unchanged");
+  });
+
+  test("preserves binary bytes (latin1 round-trip)", async () => {
+    const highBytes = Array.from({ length: 256 }, (_, i) => String.fromCharCode(i)).join("");
+    await writeBinary(`${highBytes}{...H,..._}${highBytes}`);
+    const offset = highBytes.length;
+
+    const result = await patchAllSpreadOrders(binaryPath, [
+      { pattern: "{...H,..._}", reversed: "{..._,...H}", offset },
+    ]);
+    expect(result.success).toBe(true);
+
+    const patched = await readFile(binaryPath, "latin1");
+    for (let i = 0; i < 256; i++) {
+      expect(patched.charCodeAt(i)).toBe(i);
+    }
   });
 });

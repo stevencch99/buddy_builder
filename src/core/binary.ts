@@ -1,5 +1,5 @@
-import { $ } from "bun";
-import { readFile, writeFile, copyFile, unlink } from "node:fs/promises";
+import { readFile, writeFile, copyFile, unlink, readdir } from "node:fs/promises";
+import { dirname, basename, join } from "node:path";
 import type { PatchResult } from "./types.ts";
 
 const SALT = "friend-2026-401";
@@ -21,14 +21,15 @@ export async function restoreBinary(
 }
 
 export async function listBackups(binaryPath: string): Promise<string[]> {
-  const dir = binaryPath.substring(0, binaryPath.lastIndexOf("/"));
-  const basename = binaryPath.substring(binaryPath.lastIndexOf("/") + 1);
-  const result = await $`ls -1t ${dir}`.quiet();
-  return result
-    .text()
-    .split("\n")
-    .filter((f) => f.startsWith(`${basename}.bak.`))
-    .map((f) => `${dir}/${f}`);
+  const dir = dirname(binaryPath);
+  const base = basename(binaryPath);
+  const prefix = `${base}.bak.`;
+
+  const entries = await readdir(dir);
+  return entries
+    .filter((f) => f.startsWith(prefix))
+    .sort((a, b) => b.localeCompare(a))
+    .map((f) => join(dir, f));
 }
 
 /** Remove newer backups, keeping only the oldest `keep` (the original). */
@@ -254,13 +255,61 @@ export async function patchSpreadOrder(
 }
 
 /**
- * Verify the salt string exists in the binary (version compatibility check).
+ * Read the binary once (latin1) for all subsequent analysis.
+ * Call this early and pass the result to *FromContent helpers
+ * to avoid reading the ~200MB file multiple times.
  */
+export async function readBinaryContent(binaryPath: string): Promise<string> {
+  return readFile(binaryPath, "latin1");
+}
+
+export function verifySaltExistsFromContent(content: string): boolean {
+  return content.includes(SALT);
+}
+
 export async function verifySaltExists(
   binaryPath: string,
 ): Promise<boolean> {
   const content = await readFile(binaryPath, "latin1");
-  return content.includes(SALT);
+  return verifySaltExistsFromContent(content);
+}
+
+/**
+ * Patch multiple spread patterns in a single read-modify-write cycle.
+ * Avoids N reads/writes when there are multiple patterns to patch.
+ */
+export async function patchAllSpreadOrders(
+  binaryPath: string,
+  patches: DetectedPattern[],
+): Promise<PatchResult> {
+  let content = await readFile(binaryPath, "latin1");
+
+  for (const p of patches) {
+    if (p.pattern.length !== p.reversed.length) {
+      return {
+        success: false,
+        matchCount: 0,
+        message: `Pattern and replacement must be same length ("${p.pattern}" vs "${p.reversed}").`,
+      };
+    }
+    const found = content.substring(p.offset, p.offset + p.pattern.length);
+    if (found !== p.pattern) {
+      return {
+        success: false,
+        matchCount: 0,
+        message: `Pattern "${p.pattern}" not found at offset ${p.offset}. Found "${found}" instead.`,
+      };
+    }
+    content =
+      content.substring(0, p.offset) + p.reversed + content.substring(p.offset + p.pattern.length);
+  }
+
+  await writeFile(binaryPath, content, "latin1");
+  return {
+    success: true,
+    matchCount: patches.length,
+    message: `Patched ${patches.length} instance(s)`,
+  };
 }
 
 function findAllPositions(str: string, substr: string): number[] {

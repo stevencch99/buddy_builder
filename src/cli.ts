@@ -113,7 +113,14 @@ async function main(): Promise<void> {
     }
 
     case "prune": {
-      const keep = values.keep ? parseInt(values.keep as string, 10) : undefined;
+      let keep: number | undefined;
+      if (values.keep) {
+        keep = parseInt(values.keep as string, 10);
+        if (isNaN(keep) || keep < 1) {
+          console.error(`❌ --keep must be a positive integer (got: ${values.keep})`);
+          process.exit(1);
+        }
+      }
       await prune({ lang, claudePath, keep });
       break;
     }

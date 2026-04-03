@@ -1,12 +1,13 @@
 import type { Companion, Lang, BuddyBones } from "../core/types.ts";
 import { SPECIES, RARITIES, EYES, HATS, sanitizeText, MAX_NAME_LENGTH, MAX_PERSONALITY_LENGTH } from "../core/constants.ts";
 import {
-  detectSpreadPatterns,
-  isAlreadyPatched,
-  patchSpreadOrder,
+  readBinaryContent,
+  verifySaltExistsFromContent,
+  isAlreadyPatchedFromContent,
+  detectSpreadPatternsFromContent,
+  patchAllSpreadOrders,
   backupBinary,
   restoreBinary,
-  verifySaltExists,
   findCandidatePatterns,
   pruneBinaryBackups,
   type DetectedPattern,
@@ -78,8 +79,10 @@ async function _bonesPatchInner(options: BonesPatchOptions): Promise<void> {
     process.exit(1);
   }
 
-  const saltExists = await verifySaltExists(binaryPath);
-  if (!saltExists) {
+  // Read binary once for all analysis (~200MB, avoid re-reading)
+  const binaryContent = await readBinaryContent(binaryPath);
+
+  if (!verifySaltExistsFromContent(binaryContent)) {
     console.error(`❌ ${t("salt_not_found", lang)}`);
     process.exit(1);
   }
@@ -89,13 +92,11 @@ async function _bonesPatchInner(options: BonesPatchOptions): Promise<void> {
   let binaryBackupPath: string | null = null;
 
   if (!options.skipPatch) {
-    const alreadyPatched = await isAlreadyPatched(binaryPath);
-    if (alreadyPatched) {
+    if (isAlreadyPatchedFromContent(binaryContent)) {
       console.log(`\n✅ ${t("already_patched", lang)}`);
     } else {
-      // Detect all patterns (binary may embed JS bundle multiple times)
       console.log(`\n${t("detecting_pattern", lang)}`);
-      let patterns = await detectSpreadPatterns(binaryPath);
+      let patterns = detectSpreadPatternsFromContent(binaryContent, true);
 
       if (patterns.length === 0) {
         // Fallback: show candidates for manual selection
@@ -139,22 +140,15 @@ async function _bonesPatchInner(options: BonesPatchOptions): Promise<void> {
           process.exit(1);
         }
 
-        // Patch all instances
+        // Patch all instances in a single read-modify-write cycle
         console.log(`\n${t("patching_binary", lang)}`);
-        for (const p of patterns) {
-          const result = await patchSpreadOrder(
-            binaryPath,
-            p.pattern,
-            p.reversed,
-            p.offset,
-          );
-          if (!result.success) {
-            console.error(`❌ ${t("patch_failed", lang)} ${result.message}`);
-            await restoreBinary(binaryPath, binaryBackupPath!);
-            process.exit(1);
-          }
-          console.log(`  ${t("patch_success", lang)} ${result.message}`);
+        const result = await patchAllSpreadOrders(binaryPath, patterns);
+        if (!result.success) {
+          console.error(`❌ ${t("patch_failed", lang)} ${result.message}`);
+          await restoreBinary(binaryPath, binaryBackupPath!);
+          process.exit(1);
         }
+        console.log(`  ${t("patch_success", lang)} ${result.message}`);
 
         // Codesign
         if (needsCodesign()) {
@@ -275,9 +269,10 @@ async function _bonesPatchInner(options: BonesPatchOptions): Promise<void> {
       process.exit(1);
     }
 
-    // Keep only the original (oldest) backup
-    await pruneBinaryBackups(binaryPath).catch(() => {});
-    await pruneClaudeJsonBackups().catch(() => {});
+    await Promise.all([
+      pruneBinaryBackups(binaryPath).catch(() => {}),
+      pruneClaudeJsonBackups().catch(() => {}),
+    ]);
   } else {
     console.log(`\n  [DRY RUN] Would write to ~/.claude.json:`);
     console.log(JSON.stringify(companion, null, 2));
