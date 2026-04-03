@@ -23,16 +23,17 @@ Automate binary patching + attribute override in one command. Fully reversible w
 ```bash
 git clone <repo-url>
 cd cc_budy_builder
+bun link                # registers `bb` globally
 ```
 
 ## Quick Start
 
 ```bash
 # Interactive mode (recommended) — step-by-step attribute picker
-bun run src/cli.ts bones
+bb biu
 
 # Chinese interface
-bun run src/cli.ts bones --lang zh-TW
+bb biu --lang zh-TW
 ```
 
 ## Available Options
@@ -105,7 +106,7 @@ The Bones Patch reverses the JS spread operator order in the Claude binary, so v
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    bones command flow                    │
+│                     biu command flow                     │
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
 │  1. Pre-flight checks                                   │
@@ -182,7 +183,7 @@ Restore binary and/or `~/.claude.json` from backups.
 ### Interactive mode
 
 ```bash
-bun run src/cli.ts bones
+bb biu
 ```
 
 Step-by-step guided selection of all attributes, with a preview card before applying.
@@ -190,7 +191,7 @@ Step-by-step guided selection of all attributes, with a preview card before appl
 ### Flag mode
 
 ```bash
-bun run src/cli.ts bones \
+bb biu \
   --species cat \
   --rarity legendary \
   --eye "@" \
@@ -203,7 +204,7 @@ bun run src/cli.ts bones \
 ### Dry run
 
 ```bash
-bun run src/cli.ts bones --dry-run
+bb biu --dry-run
 ```
 
 Runs all checks and attribute selection, shows preview and JSON output, but does not modify any files.
@@ -211,7 +212,7 @@ Runs all checks and attribute selection, shows preview and JSON output, but does
 ### Already-patched binary
 
 ```bash
-bun run src/cli.ts bones --skip-patch
+bb biu --skip-patch
 ```
 
 Skip binary patching, only update companion data in `~/.claude.json`.
@@ -219,7 +220,7 @@ Skip binary patching, only update companion data in `~/.claude.json`.
 ### Restore
 
 ```bash
-bun run src/cli.ts restore
+bb restore
 ```
 
 List all backups and interactively choose which to restore.
@@ -228,10 +229,10 @@ List all backups and interactively choose which to restore.
 
 ```bash
 # Keep only the original backup (default)
-bun run src/cli.ts prune
+bb prune
 
 # Keep the 2 oldest backups
-bun run src/cli.ts prune --keep 2
+bb prune --keep 2
 ```
 
 Shows backup count and disk usage, then asks for confirmation before deleting.
@@ -239,14 +240,14 @@ Shows backup count and disk usage, then asks for confirmation before deleting.
 ## CLI Reference
 
 ```
-Usage: buddy-builder <command> [options]
+Usage: bb <command> [options]
 
 Commands:
-  bones       Apply Bones Patch (customize all buddy attributes)
+  biu         Build your buddy (customize all attributes)
   restore     Restore Claude binary and/or JSON from backup
   prune       Remove old backups (keeps oldest N, default 1)
 
-bones options:
+biu options:
   --species <name>        Species (see list above)
   --rarity <name>         common | uncommon | rare | epic | legendary
   --eye <char>            ^ | o | O | - | @ | *
@@ -269,7 +270,7 @@ prune options:
 
 ## Backup System
 
-Every `bones` execution creates timestamped backups:
+Every `biu` execution creates timestamped backups:
 
 | Target         | Backup Format                             | Example                                     |
 | -------------- | ----------------------------------------- | ------------------------------------------- |
@@ -329,7 +330,7 @@ tests/
 
 ## Notes
 
-- Claude Code updates overwrite the binary — re-run `bones` after updating
+- Claude Code updates overwrite the binary — re-run `bb biu` after updating
 - macOS re-signing is required, otherwise Gatekeeper blocks the modified binary
 - Requires Bun runtime (core algorithm uses `Bun.hash()` wyhash64)
 
@@ -364,16 +365,17 @@ MIT
 ```bash
 git clone <repo-url>
 cd cc_budy_builder
+bun link                # 全域註冊 `bb` 指令
 ```
 
 ## 快速開始
 
 ```bash
 # 互動模式（推薦）— 逐步引導選擇所有屬性
-bun run src/cli.ts bones --lang zh-TW
+bb biu --lang zh-TW
 
 # 英文介面
-bun run src/cli.ts bones
+bb biu
 ```
 
 ## 可用選項
@@ -446,7 +448,7 @@ Bones Patch 透過反轉 Claude binary 中的 JS spread 運算符順序，讓 `~
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    bones 命令流程                        │
+│                     biu 命令流程                         │
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
 │  1. Pre-flight 檢查                                     │
@@ -523,7 +525,7 @@ Bones Patch 透過反轉 Claude binary 中的 JS spread 運算符順序，讓 `~
 ### 互動模式
 
 ```bash
-bun run src/cli.ts bones --lang zh-TW
+bb biu --lang zh-TW
 ```
 
 逐步引導選擇所有屬性，最後預覽確認後套用。
@@ -531,7 +533,7 @@ bun run src/cli.ts bones --lang zh-TW
 ### Flag 模式
 
 ```bash
-bun run src/cli.ts bones --lang zh-TW \
+bb biu --lang zh-TW \
   --species cat \
   --rarity legendary \
   --eye "@" \
@@ -544,7 +546,7 @@ bun run src/cli.ts bones --lang zh-TW \
 ### 模擬執行
 
 ```bash
-bun run src/cli.ts bones --dry-run
+bb biu --dry-run
 ```
 
 走完所有檢查和屬性選擇，顯示預覽和將寫入的 JSON，但不修改任何檔案。
@@ -552,7 +554,7 @@ bun run src/cli.ts bones --dry-run
 ### 已 patch 過的 binary
 
 ```bash
-bun run src/cli.ts bones --skip-patch
+bb biu --skip-patch
 ```
 
 跳過 binary patch 步驟，只更新 `~/.claude.json` 中的 companion 資料。
@@ -560,7 +562,7 @@ bun run src/cli.ts bones --skip-patch
 ### 還原
 
 ```bash
-bun run src/cli.ts restore
+bb restore
 ```
 
 列出所有備份，互動式選擇要還原的版本。
@@ -569,17 +571,17 @@ bun run src/cli.ts restore
 
 ```bash
 # 只保留最早的原始備份（預設）
-bun run src/cli.ts prune
+bb prune
 
 # 保留最早的 2 份備份
-bun run src/cli.ts prune --keep 2
+bb prune --keep 2
 ```
 
 顯示備份數量和磁碟用量，確認後才刪除。
 
 ## 備份機制
 
-每次執行 `bones` 命令都會建立帶時間戳的備份：
+每次執行 `biu` 命令都會建立帶時間戳的備份：
 
 | 目標           | 備份格式                                  | 範例                                        |
 | -------------- | ----------------------------------------- | ------------------------------------------- |
@@ -614,7 +616,7 @@ bun test
 
 ## 注意事項
 
-- Claude Code 更新後 binary 會被覆蓋，需重新執行 `bones` 命令
+- Claude Code 更新後 binary 會被覆蓋，需重新執行 `bb biu`
 - macOS 重簽是必須的，否則 Gatekeeper 會阻擋修改過的 binary
 - 本工具需要 Bun runtime（核心演算法使用 `Bun.hash()`）
 

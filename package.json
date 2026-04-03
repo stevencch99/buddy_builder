@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "type": "module",
   "bin": {
-    "buddy-builder": "./src/cli.ts"
+    "buddy-builder": "./src/cli.ts",
+    "bb": "./src/cli.ts"
   },
   "scripts": {
     "start": "bun run src/cli.ts",
