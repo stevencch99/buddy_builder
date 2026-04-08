@@ -7,13 +7,11 @@ import {
   restoreBinary,
   listBackups,
   pruneBinaryBackups,
-  detectSpreadPattern,
   detectSpreadPatterns,
   detectSpreadPatternsFromContent,
   isAlreadyPatched,
   isAlreadyPatchedFromContent,
   findCandidatePatterns,
-  patchSpreadOrder,
   patchAllSpreadOrders,
   verifySaltExists,
 } from "../../src/core/binary.ts";
@@ -50,48 +48,8 @@ describe("verifySaltExists", () => {
 });
 
 // ---------------------------------------------------------------------------
-// detectSpreadPattern
+// detectSpreadPatterns
 // ---------------------------------------------------------------------------
-describe("detectSpreadPattern (singular wrapper)", () => {
-  test("detects unpatched pattern near salt", async () => {
-    await writeBinary('let H=T_().companion;friend-2026-401 {...H,...bones} suffix');
-    const result = await detectSpreadPattern(binaryPath);
-    expect(result).not.toBeNull();
-    expect(result!.pattern).toBe("{...H,...bones}");
-    expect(result!.reversed).toBe("{...bones,...H}");
-  });
-
-  test("detects minified names", async () => {
-    await writeBinary('let H=T_().companion;friend-2026-401 {...H,..._} suffix');
-    const result = await detectSpreadPattern(binaryPath);
-    expect(result).not.toBeNull();
-    expect(result!.pattern).toBe("{...H,..._}");
-    expect(result!.reversed).toBe("{..._,...H}");
-  });
-
-  test("works when same pattern appears many times globally but once near salt", async () => {
-    const farAway = "{...H,..._} ".repeat(17);
-    const padding = "x".repeat(20000);
-    await writeBinary(`${farAway}${padding}let H=T_().companion;friend-2026-401 {...H,..._} suffix`);
-    const result = await detectSpreadPattern(binaryPath);
-    expect(result).not.toBeNull();
-    expect(result!.pattern).toBe("{...H,..._}");
-    expect(result!.offset).toBeGreaterThan(20000);
-  });
-
-  test("returns null when no salt and no pattern", async () => {
-    await writeBinary("no relevant patterns here");
-    const result = await detectSpreadPattern(binaryPath);
-    expect(result).toBeNull();
-  });
-
-  test("returns null when pattern is already patched", async () => {
-    await writeBinary('let H=T_().companion;friend-2026-401 {..._,...H} suffix');
-    const result = await detectSpreadPattern(binaryPath);
-    expect(result).toBeNull();
-  });
-});
-
 describe("detectSpreadPatterns (multi-instance)", () => {
   test("detects unpatched patterns near ALL salt strings", async () => {
     const padding = "x".repeat(20000);
@@ -261,13 +219,15 @@ describe("findCandidatePatterns", () => {
 });
 
 // ---------------------------------------------------------------------------
-// patchSpreadOrder
+// patchAllSpreadOrders
 // ---------------------------------------------------------------------------
-describe("patchSpreadOrder", () => {
+describe("patchAllSpreadOrders", () => {
   test("replaces pattern at given offset", async () => {
     await writeBinary("before {...H,..._} after");
     const offset = "before ".length;
-    const result = await patchSpreadOrder(binaryPath, "{...H,..._}", "{..._,...H}", offset);
+    const result = await patchAllSpreadOrders(binaryPath, [
+      { pattern: "{...H,..._}", reversed: "{..._,...H}", offset },
+    ]);
 
     expect(result.success).toBe(true);
     expect(result.matchCount).toBe(1);
@@ -278,39 +238,53 @@ describe("patchSpreadOrder", () => {
 
   test("only patches at specified offset, not other occurrences", async () => {
     await writeBinary("{...H,..._} middle {...H,..._} end");
-    // Patch only the second occurrence
     const offset = "{...H,..._} middle ".length;
-    const result = await patchSpreadOrder(binaryPath, "{...H,..._}", "{..._,...H}", offset);
+    const result = await patchAllSpreadOrders(binaryPath, [
+      { pattern: "{...H,..._}", reversed: "{..._,...H}", offset },
+    ]);
 
     expect(result.success).toBe(true);
     const content = await readFile(binaryPath, "latin1");
     expect(content).toBe("{...H,..._} middle {..._,...H} end");
   });
 
-  test("fails when pattern not at given offset", async () => {
-    await writeBinary("no pattern here");
-    const result = await patchSpreadOrder(binaryPath, "{...H,..._}", "{..._,...H}", 0);
-    expect(result.success).toBe(false);
-    expect(result.matchCount).toBe(0);
+  test("patches multiple offsets in a single pass", async () => {
+    await writeBinary("{...H,..._} middle {...H,..._} end");
+    const result = await patchAllSpreadOrders(binaryPath, [
+      { pattern: "{...H,..._}", reversed: "{..._,...H}", offset: 0 },
+      { pattern: "{...H,..._}", reversed: "{..._,...H}", offset: "{...H,..._} middle ".length },
+    ]);
+
+    expect(result.success).toBe(true);
+    expect(result.matchCount).toBe(2);
+    const content = await readFile(binaryPath, "latin1");
+    expect(content).toBe("{..._,...H} middle {..._,...H} end");
   });
 
-  test("fails when offset is wrong", async () => {
-    await writeBinary("xxx{...H,..._}");
-    const result = await patchSpreadOrder(binaryPath, "{...H,..._}", "{..._,...H}", 0);
+  test("fails when pattern not at given offset", async () => {
+    await writeBinary("no pattern here");
+    const result = await patchAllSpreadOrders(binaryPath, [
+      { pattern: "{...H,..._}", reversed: "{..._,...H}", offset: 0 },
+    ]);
     expect(result.success).toBe(false);
+    expect(result.matchCount).toBe(0);
   });
 
   test("does not modify file on failure", async () => {
     const original = "no pattern here";
     await writeBinary(original);
-    await patchSpreadOrder(binaryPath, "{...H,..._}", "{..._,...H}", 0);
+    await patchAllSpreadOrders(binaryPath, [
+      { pattern: "{...H,..._}", reversed: "{..._,...H}", offset: 0 },
+    ]);
     const content = await readFile(binaryPath, "latin1");
     expect(content).toBe(original);
   });
 
   test("fails when pattern and replacement have different lengths", async () => {
     await writeBinary("{...H,..._}");
-    const result = await patchSpreadOrder(binaryPath, "{...H,..._}", "{...bones,...H}", 0);
+    const result = await patchAllSpreadOrders(binaryPath, [
+      { pattern: "{...H,..._}", reversed: "{...bones,...H}", offset: 0 },
+    ]);
     expect(result.success).toBe(false);
     expect(result.message).toContain("same length");
   });
@@ -322,7 +296,9 @@ describe("patchSpreadOrder", () => {
     await writeBinary(content);
 
     const offset = highBytes.length;
-    const result = await patchSpreadOrder(binaryPath, "{...H,..._}", "{..._,...H}", offset);
+    const result = await patchAllSpreadOrders(binaryPath, [
+      { pattern: "{...H,..._}", reversed: "{..._,...H}", offset },
+    ]);
     expect(result.success).toBe(true);
 
     const patched = await readFile(binaryPath, "latin1");

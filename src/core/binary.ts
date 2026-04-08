@@ -119,17 +119,6 @@ export function detectSpreadPatternsFromContent(
 }
 
 /**
- * Single-result wrapper for backward compatibility.
- * Returns the first detected pattern, or null.
- */
-export async function detectSpreadPattern(
-  binaryPath: string,
-): Promise<DetectedPattern | null> {
-  const all = await detectSpreadPatterns(binaryPath);
-  return all.length > 0 ? all[0] : null;
-}
-
-/**
  * Check if ALL spread patterns near salt strings have been patched.
  * Returns true only when no unpatched (original-order) spreads remain.
  *
@@ -215,43 +204,6 @@ export async function findCandidatePatterns(
   }
 
   return results;
-}
-
-/**
- * Patch the spread order at a specific offset in the binary.
- * Only modifies the exact bytes at the given position.
- */
-export async function patchSpreadOrder(
-  binaryPath: string,
-  pattern: string,
-  reversed: string,
-  offset: number,
-): Promise<PatchResult> {
-  if (pattern.length !== reversed.length) {
-    return {
-      success: false,
-      matchCount: 0,
-      message: `Pattern and replacement must be same length ("${pattern}" is ${pattern.length}, "${reversed}" is ${reversed.length}).`,
-    };
-  }
-
-  const content = await readFile(binaryPath, "latin1");
-
-  // Verify the pattern is actually at the expected offset
-  const found = content.substring(offset, offset + pattern.length);
-  if (found !== pattern) {
-    return {
-      success: false,
-      matchCount: 0,
-      message: `Pattern "${pattern}" not found at offset ${offset}. Found "${found}" instead.`,
-    };
-  }
-
-  const patched =
-    content.substring(0, offset) + reversed + content.substring(offset + pattern.length);
-  await writeFile(binaryPath, patched, "latin1");
-
-  return { success: true, matchCount: 1, message: `Patched: ${pattern} → ${reversed}` };
 }
 
 /**
