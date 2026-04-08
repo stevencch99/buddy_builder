@@ -37,6 +37,9 @@ Global options:
 
 prune options:
   --keep <n>              Number of oldest backups to keep (default: 1)
+
+Examples:
+  bb biu --species cat --rarity legendary --eye @ --hat propeller --shiny --name CaoCao --personality "A friendly companion who loves to help debug code."
 `);
 }
 
@@ -117,7 +120,9 @@ async function main(): Promise<void> {
       if (values.keep) {
         keep = parseInt(values.keep as string, 10);
         if (isNaN(keep) || keep < 1) {
-          console.error(`❌ --keep must be a positive integer (got: ${values.keep})`);
+          console.error(
+            `❌ --keep must be a positive integer (got: ${values.keep})`,
+          );
           process.exit(1);
         }
       }
@@ -133,6 +138,8 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  console.error(`\n❌ Unexpected error: ${err instanceof Error ? err.message : String(err)}`);
+  console.error(
+    `\n❌ Unexpected error: ${err instanceof Error ? err.message : String(err)}`,
+  );
   process.exit(1);
 });
