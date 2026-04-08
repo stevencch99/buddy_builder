@@ -163,8 +163,8 @@ const messages: Record<string, { en: string; "zh-TW": string }> = {
     "zh-TW": "輸入個性描述:",
   },
   "confirm_apply": {
-    en: "Apply these settings? (y/n)",
-    "zh-TW": "套用這些設定？(y/n)",
+    en: "Apply these settings?",
+    "zh-TW": "套用這些設定？",
   },
 
   // Candidates
