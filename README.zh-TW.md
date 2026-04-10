@@ -24,7 +24,7 @@ Claude Code 的 buddy 系統運作方式：
 
 - [Bun](https://bun.sh/) >= 1.0
 - macOS / Linux
-- Claude Code v2.1.89+
+- Claude Code v2.1.89 – v2.1.96（v2.1.97+ 已將寵物功能移到伺服器端，不支援）
 
 ## 安裝
 
@@ -43,7 +43,8 @@ bb biu --lang zh-TW
 # 或用參數直接指定
 bb biu --lang zh-TW --species cat --rarity legendary --eye "@" --hat crown --shiny \
   --name "Brineclaw" \
-  --personality "A chaos-loving feline who debugs by knocking things off the stack."
+  --personality "A chaos-loving feline who debugs by knocking things off the stack." \
+  --debugging 100 --patience 75 --chaos 75 --wisdom 100 --snark 100
 
 # 模擬執行（不修改任何檔案）
 bb biu --dry-run
@@ -74,6 +75,11 @@ biu options:
   --no-shiny              強制不閃光
   --name <name>           夥伴名字
   --personality <text>    個性描述
+  --debugging <n>         DEBUGGING 數值（1-100，預設：稀有度 base + 25）
+  --patience <n>          PATIENCE 數值（1-100，預設：稀有度 base + 25）
+  --chaos <n>             CHAOS 數值（1-100，預設：稀有度 base + 25）
+  --wisdom <n>            WISDOM 數值（1-100，預設：稀有度 base + 25）
+  --snark <n>             SNARK 數值（1-100，預設：稀有度 base + 25）
   --skip-patch            跳過 binary patch（已 patch 過時使用）
 
 Global options:
@@ -92,6 +98,7 @@ prune options:
 
 ## 注意事項
 
+- **v2.1.97+ 不支援** — 寵物功能已移到伺服器端，binary patch 不再有效。請先降級：`npm install -g @anthropic-ai/claude-code@2.1.96`
 - Claude Code 更新後 binary 會被覆蓋，需重新執行 `bb biu`
 - macOS 修改 binary 後需要重新簽名（`codesign`）— 工具會自動處理
 - 需要 Bun runtime（核心演算法使用 `Bun.hash()` wyhash64）

@@ -24,7 +24,7 @@ The tool handles the full pipeline automatically: backup binary → patch → re
 
 - [Bun](https://bun.sh/) >= 1.0
 - macOS / Linux
-- Claude Code v2.1.89+
+- Claude Code v2.1.89 – v2.1.96 (v2.1.97+ moved the companion to server-side and is not supported)
 
 ## Install
 
@@ -43,7 +43,8 @@ bb biu
 # Or specify everything via flags
 bb biu --species cat --rarity legendary --eye "@" --hat crown --shiny \
   --name "Brineclaw" \
-  --personality "A chaos-loving feline who debugs by knocking things off the stack."
+  --personality "A chaos-loving feline who debugs by knocking things off the stack." \
+  --debugging 100 --patience 75 --chaos 75 --wisdom 100 --snark 100
 
 # Dry run (no files modified)
 bb biu --dry-run
@@ -74,6 +75,11 @@ biu options:
   --no-shiny              Force not shiny
   --name <name>           Buddy name
   --personality <text>    Personality description
+  --debugging <n>         DEBUGGING stat (1-100, default: rarity base + 25)
+  --patience <n>          PATIENCE stat (1-100, default: rarity base + 25)
+  --chaos <n>             CHAOS stat (1-100, default: rarity base + 25)
+  --wisdom <n>            WISDOM stat (1-100, default: rarity base + 25)
+  --snark <n>             SNARK stat (1-100, default: rarity base + 25)
   --skip-patch            Skip binary patch (if already patched)
 
 Global options:
@@ -92,6 +98,7 @@ Every run creates timestamped backups of both the Claude binary and `~/.claude.j
 
 ## Notes
 
+- **v2.1.97+ is not supported** — companion logic moved server-side, so binary patching no longer works. Downgrade first: `npm install -g @anthropic-ai/claude-code@2.1.96`
 - Claude Code updates overwrite the binary — re-run `bb biu` after updating
 - macOS requires re-signing (`codesign`) after any binary modification — handled automatically
 - Requires Bun runtime (core algorithm uses `Bun.hash()` wyhash64)
